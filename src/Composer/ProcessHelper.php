@@ -106,6 +106,19 @@ final class ProcessHelper
         return $package->getExtra()['config-plugin'] ?? [];
     }
 
+    public function getPackageReplaceConfig(PackageInterface $package, Options $options): array
+    {
+        $replacePlanFilePath = $this->getAbsolutePackageFilePath(
+            $package,
+            $options,
+            Options::REPLACE_PLAN_FILENAME
+        );
+
+        return file_exists($replacePlanFilePath)
+            ? require $replacePlanFilePath
+            : [];
+    }
+
     /**
      * Returns the config paths instance.
      *

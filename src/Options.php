@@ -14,7 +14,8 @@ use function trim;
  */
 final class Options
 {
-    public const MERGE_PLAN_FILENAME = 'MERGE_PLAN.php';
+    public const MERGE_PLAN_FILENAME = '.mergeplan.php';
+    public const REPLACE_PLAN_FILENAME = '.replaceplan.php';
     public const DEFAULT_CONFIG_DIRECTORY = 'config';
     public const DEFAULT_VENDOR_DIRECTORY = 'vendor';
     public const DEFAULT_ENVIRONMENT = '/';
@@ -31,7 +32,7 @@ final class Options
         $options = $extra['config-plugin-options'];
 
         if (isset($options['source-directory'])) {
-            $this->sourceDirectory = $this->normalizePath((string) $options['source-directory']);
+            $this->sourceDirectory = $this->normalizePath((string)$options['source-directory']);
         }
     }
 

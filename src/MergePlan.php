@@ -69,6 +69,49 @@ final class MergePlan
         return $this->mergePlan[$environment][$group] ?? [];
     }
 
+    public function replace(
+        string $file,
+        string $package,
+        string $packageReplace,
+        string $group,
+        string $replaceFile,
+        string $environment = Options::DEFAULT_ENVIRONMENT
+    ): void {
+        if (!isset($this->mergePlan[$environment][$group][$package])) {
+            return;
+        }
+        foreach ($this->mergePlan[$environment][$group][$package] as $index => $currentFile) {
+            if ($currentFile === $file) {
+                if (!$this->hasConfig($replaceFile, $packageReplace, $group, $environment)) {
+                    $this->add($replaceFile, $packageReplace, $group, $environment);
+                }
+
+                unset($this->mergePlan[$environment][$group][$package][$index]);
+
+                if ($this->mergePlan[$environment][$group][$package] === []) {
+                    unset($this->mergePlan[$environment][$group][$package]);
+                }
+            }
+        }
+    }
+
+    public function hasConfig(
+        string $file,
+        string $package,
+        string $group,
+        string $environment = Options::DEFAULT_ENVIRONMENT
+    ): bool {
+        $files = $this->mergePlan[$environment][$group][$package] ?? [];
+
+        foreach ($files as $configFile) {
+            if ($file === $configFile) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     /**
      * Returns the merge plan as an array.
      *

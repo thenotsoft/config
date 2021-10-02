@@ -116,7 +116,7 @@ final class Config
                 $filePath = $this->paths->absolute($file, $package);
 
                 if (Options::containsWildcard($file)) {
-                    foreach (glob($filePath, GLOB_NOSORT) as $match) {
+                    foreach (array_reverse(glob($filePath, GLOB_NOSORT)) as $match) {
                         $this->build[$environment][$group] = $this->merger->merge(
                             new Context($match, $package, $group, $environment),
                             '',

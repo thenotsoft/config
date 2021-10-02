@@ -40,6 +40,8 @@ final class MergePlanProcess
         $this->addRootPackageConfigToMergePlan($rootPackage);
         $this->addEnvironmentsConfigsToMergePlan($rootPackage);
 
+        $this->replacePackagesConfigs();
+
         if ($updateMergePlan) {
             $this->updateMergePlan();
         }
@@ -51,7 +53,7 @@ final class MergePlanProcess
             $options = new Options($package->getExtra());
 
             foreach ($this->helper->getPackageConfig($package) as $group => $files) {
-                $files = (array) $files;
+                $files = (array)$files;
 
                 foreach ($files as $file) {
                     $isOptional = false;
@@ -104,7 +106,7 @@ final class MergePlanProcess
     {
         foreach ($this->helper->getPackageConfig($package) as $group => $files) {
             $this->mergePlan->addMultiple(
-                (array) $files,
+                (array)$files,
                 Options::ROOT_PACKAGE_NAME,
                 $group,
             );
@@ -114,7 +116,7 @@ final class MergePlanProcess
     private function addEnvironmentsConfigsToMergePlan(RootPackageInterface $package): void
     {
         /** @psalm-var array<string, array<string, string|string[]>> $environments */
-        $environments = (array) ($package->getExtra()['config-plugin-environments'] ?? []);
+        $environments = (array)($package->getExtra()['config-plugin-environments'] ?? []);
 
         foreach ($environments as $environment => $groups) {
             if ($environment === Options::DEFAULT_ENVIRONMENT) {
@@ -123,11 +125,40 @@ final class MergePlanProcess
 
             foreach ($groups as $group => $files) {
                 $this->mergePlan->addMultiple(
-                    (array) $files,
+                    (array)$files,
                     Options::ROOT_PACKAGE_NAME,
                     $group,
                     $environment,
                 );
+            }
+        }
+    }
+
+    private function replacePackagesConfigs(): void
+    {
+        $packages = $this->helper->buildPackages();
+
+        foreach ($packages as $package) {
+            $options = new Options($package->getExtra());
+            foreach ($this->helper->getPackageReplaceConfig($package, $options) as $group => $replacePackages) {
+                foreach ($replacePackages as $packageName => $files) {
+                    if (!isset($packages[$packageName])) {
+                        continue;
+                    }
+
+                    $replacePackage = $packages[$packageName];
+                    $replaceOptions = new Options($replacePackage->getExtra());
+
+                    foreach ($files as $file => $replaceFile) {
+                        $this->mergePlan->replace(
+                            $this->relativeConfigPath($replaceOptions, $file),
+                            $packageName,
+                            $package->getPrettyName(),
+                            $group,
+                            $this->relativeConfigPath($options, $replaceFile)
+                        );
+                    }
+                }
             }
         }
     }
@@ -143,12 +174,16 @@ final class MergePlanProcess
         $content = '<?php'
             . "\n\ndeclare(strict_types=1);"
             . "\n\n// Do not edit. Content will be replaced."
-            . "\nreturn " . VarDumper::create($mergePlan)->export(true) . ";\n"
-        ;
+            . "\nreturn " . VarDumper::create($mergePlan)->export(true) . ";\n";
 
         if ($this->normalizeLineEndings($oldContent) !== $this->normalizeLineEndings($content)) {
             file_put_contents($filePath, $content);
         }
+    }
+
+    private function relativeConfigPath(Options $options, string $file): string
+    {
+        return "{$options->sourceDirectory()}/$file";
     }
 
     private function normalizeLineEndings(string $value): string
