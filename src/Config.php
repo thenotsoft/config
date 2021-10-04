@@ -35,8 +35,6 @@ final class Config
      * @param ConfigPaths $paths The config paths instance.
      * @param string|null $environment The environment name.
      * @param string[] $recursiveMergeGroups Names of config groups that should be merged recursively.
-     *
-     * @throws ErrorException If the environment does not exist.
      */
     public function __construct(ConfigPaths $paths, string $environment = null, array $recursiveMergeGroups = [])
     {
@@ -47,7 +45,7 @@ final class Config
         $this->mergePlan = new MergePlan(require $this->paths->absolute(Options::MERGE_PLAN_FILENAME));
 
         if (!$this->mergePlan->hasEnvironment($this->environment)) {
-            $this->throwException(sprintf('The "%s" configuration environment does not exist.', $this->environment));
+            $this->environment = Options::DEFAULT_ENVIRONMENT;
         }
 
         $this->merger = new Merger($this->paths, $this->mergePlan, $recursiveMergeGroups);
@@ -58,9 +56,9 @@ final class Config
      *
      * @param string $group The group name.
      *
+     * @return array The configuration of the group.
      * @throws ErrorException If the group does not exist or an error occurred during the build.
      *
-     * @return array The configuration of the group.
      */
     public function get(string $group): array
     {
@@ -116,7 +114,7 @@ final class Config
                 $filePath = $this->paths->absolute($file, $package);
 
                 if (Options::containsWildcard($file)) {
-                    foreach (array_reverse(glob($filePath, GLOB_NOSORT)) as $match) {
+                    foreach (glob($filePath, GLOB_NOSORT) as $match) {
                         $this->build[$environment][$group] = $this->merger->merge(
                             new Context($match, $package, $group, $environment),
                             '',
@@ -147,9 +145,9 @@ final class Config
      * @param string $group The group name.
      * @param string $environment The environment name.
      *
+     * @return array The configuration of the root group or the empty array.
      * @throws ErrorException If an error occurred during the build.
      *
-     * @return array The configuration of the root group or the empty array.
      */
     private function buildRootGroup(string $group, string $environment): array
     {
@@ -167,17 +165,19 @@ final class Config
      * @param string $group The group name.
      * @param string $filePath The file path.
      *
+     * @return array The configuration from the file.
      * @throws ErrorException If an error occurred during the build.
      *
-     * @return array The configuration from the file.
      */
     private function buildFile(string $group, string $filePath): array
     {
         $scopeRequire = static function (): array {
             /** @psalm-suppress InvalidArgument, MissingClosureParamType */
-            set_error_handler(static function (int $errorNumber, string $errorString, string $errorFile, int $errorLine) {
-                throw new ErrorException($errorString, $errorNumber, 0, $errorFile, $errorLine);
-            });
+            set_error_handler(
+                static function (int $errorNumber, string $errorString, string $errorFile, int $errorLine) {
+                    throw new ErrorException($errorString, $errorNumber, 0, $errorFile, $errorLine);
+                }
+            );
 
             /** @psalm-suppress MixedArgument */
             extract(func_get_arg(1), EXTR_SKIP);
@@ -207,9 +207,9 @@ final class Config
      * @param string $group The group name.
      * @param string $environment The environment name.
      *
+     * @return string The actual environment name.
      * @throws ErrorException If the group does not exist.
      *
-     * @return string The actual environment name.
      */
     private function prepareEnvironmentGroup(string $group, string $environment): string
     {
@@ -231,20 +231,22 @@ final class Config
      * @param string $group The group name.
      * @param string $environment The environment name.
      *
+     * @return string The variable name.
      * @throws ErrorException If the variable name is not valid.
      *
-     * @return string The variable name.
      */
     private function prepareVariable(string $variable, string $group, string $environment): string
     {
         $name = substr($variable, 1);
 
         if ($name === $group) {
-            $this->throwException(sprintf(
-                'The variable "%s" must not be located inside the "%s" config group.',
-                "$variable",
-                "$name",
-            ));
+            $this->throwException(
+                sprintf(
+                    'The variable "%s" must not be located inside the "%s" config group.',
+                    "$variable",
+                    "$name",
+                )
+            );
         }
 
         if (!$this->mergePlan->hasGroup($name, $environment) && !$this->mergePlan->hasGroup($name)) {
